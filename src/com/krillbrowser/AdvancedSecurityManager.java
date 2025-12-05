@@ -89,6 +89,11 @@ public class AdvancedSecurityManager {
 
         // Check blocked domains
         if (blockTrackers || blockAds) {
+            // WHITELIST: Allow Google Video (YouTube CDN)
+            if (lowerUrl.contains("googlevideo.com") || lowerUrl.contains("youtube.com")) {
+                return false;
+            }
+
             for (String domain : blockedDomains) {
                 if (lowerUrl.contains(domain)) {
                     System.out.println("🛡️ Blocked: " + domain);
@@ -106,6 +111,11 @@ public class AdvancedSecurityManager {
     public String cleanUrl(String url) {
         if (url == null || !url.contains("?"))
             return url;
+
+        // CRITICAL FOR YOUTUBE: Do not strip parameters from video chunks
+        if (url.contains("googlevideo.com")) {
+            return url;
+        }
 
         try {
             URI uri = new URI(url);

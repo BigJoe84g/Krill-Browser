@@ -155,14 +155,6 @@ public class BrowserTab {
                                 "  style.innerHTML = '.ytd-ad-slot-renderer, ytd-promoted-sparkles-web-renderer, .ytd-in-feed-ad-layout-renderer { display: none !important; }';"
                                 +
                                 "  document.head.appendChild(style);" +
-                                "  // Stop video ads (experimental)" +
-                                "  setInterval(function() {" +
-                                "    var ad = document.querySelector('.ad-showing');" +
-                                "    if (ad) {" +
-                                "      var video = document.querySelector('video');" +
-                                "      if (video) { video.currentTime = 100000; }" + // Skip ad
-                                "    }" +
-                                "  }, 1000);" +
                                 "}");
 
                 // Update URL field
