@@ -33,17 +33,18 @@ public class BrowserTab {
         tab = new Tab("New Tab");
         tab.setClosable(true);
 
-        // Create WebView with performance optimizations
+        // Create the WebView
         webView = new WebView();
         webEngine = webView.getEngine();
 
-        // === PERFORMANCE OPTIMIZATIONS ===
-
-        // Use realistic User-Agent to avoid CAPTCHA/bot detection
+        // Use Windows Chrome User-Agent.
+        // This is the most "standard" signature and often bypasses strict browser
+        // integrity checks
+        // that block "Fake Safari" or unusual user agents.
         webEngine.setUserAgent(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
-        // Disable context menu for faster response
+        // Optimize WebView performance
         webView.setContextMenuEnabled(false);
 
         // Reduce memory by limiting font smoothing
@@ -57,6 +58,22 @@ public class BrowserTab {
 
         // Enable JavaScript (needed for most sites)
         webEngine.setJavaScriptEnabled(true);
+
+        // MEDIA CAPABILITY MASKING:
+        // JavaFX WebView lacks MediaSource Extensions (MSE) and WebM/VP9 support.
+        // We inject a script to force YouTube to fall back to progressive MP4/H.264
+        // (which works).
+        webEngine.executeScript(
+                "Object.defineProperty(HTMLMediaElement.prototype, 'canPlayType', {" +
+                        "  value: function(type) {" +
+                        "    if (type.includes('webm') || type.includes('vp9') || type.includes('opus')) return '';" +
+                        "    if (type.includes('mp4') || type.includes('avc1') || type.includes('aac')) return 'probably';"
+                        +
+                        "    return 'maybe';" +
+                        "  }" +
+                        "});" +
+                        "if (window.MediaSource) { delete window.MediaSource; }" // Disable MSE to force fallback
+        );
 
         // Create navigation bar
         HBox navigationBar = createNavigationBar();
@@ -137,8 +154,51 @@ public class BrowserTab {
     }
 
     private void setupListeners() {
+        // Log errors
+        webEngine.setOnError(event -> {
+            DebugLogger.log("WebView", "Error: " + event.getMessage());
+        });
+
+        webEngine.setOnAlert(event -> {
+            DebugLogger.log("WebView", "Alert: " + event.getData());
+        });
+
+        // Capture console.log using Reflection (bypassing module compile restrictions)
+        try {
+            Class<?> listenerClass = Class.forName("com.sun.javafx.webkit.WebConsoleListener");
+            Object listenerProxy = java.lang.reflect.Proxy.newProxyInstance(
+                    listenerClass.getClassLoader(),
+                    new Class<?>[] { listenerClass },
+                    (proxy, method, args) -> {
+                        if (method.getName().equals("messageAdded")) {
+                            // messageAdded(WebView webView, String message, int lineNumber, String
+                            // sourceId)
+                            String msg = (String) args[1];
+                            Integer line = (Integer) args[2];
+                            String source = (String) args[3];
+                            DebugLogger.log("Console", "[" + source + ":" + line + "] " + msg);
+                        }
+                        return null;
+                    });
+
+            listenerClass.getMethod("setDefaultListener", listenerClass)
+                    .invoke(null, listenerProxy);
+
+        } catch (Exception e) {
+            DebugLogger.log("WebView", "Could not attach console listener: " + e.getMessage());
+        }
+
         // Listen for page load state changes
         webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+            DebugLogger.log("LoadWorker", "State changed: " + oldState + " -> " + newState);
+
+            if (newState == Worker.State.FAILED) {
+                DebugLogger.log("LoadWorker", "FAILED loading page");
+                if (webEngine.getLoadWorker().getException() != null) {
+                    DebugLogger.logError("LoadWorker", "Exception", webEngine.getLoadWorker().getException());
+                }
+            }
+
             if (newState == Worker.State.RUNNING) {
                 reloadButton.setText("✕");
                 reloadButton.setTooltip(new Tooltip("Stop"));
@@ -245,6 +305,7 @@ public class BrowserTab {
      * Loads the given URL in the WebView with comprehensive security checks
      */
     public void loadUrl(String url) {
+        DebugLogger.log("Navigation", "Request to load: " + url);
         AdvancedSecurityManager advSecurity = AdvancedSecurityManager.getInstance();
         SecurityManager security = SecurityManager.getInstance();
 
@@ -276,6 +337,7 @@ public class BrowserTab {
         // entertainment)
         BrowserProfile profile = BrowserProfile.getInstance();
         if (profile.shouldBlockSite(url)) {
+            DebugLogger.log("Security", "Blocked by Profile (" + profile.getCurrentProfile() + "): " + url);
             showProfileWarning(profile.getBlockMessage());
             return;
         }
@@ -283,6 +345,7 @@ public class BrowserTab {
         // PHISHING DETECTION - Check for lookalike domains and scams
         PhishingDetector.PhishingResult phishingResult = PhishingDetector.getInstance().checkUrl(url);
         if (phishingResult.isPhishing) {
+            DebugLogger.log("Security", "Blocked Phishing (" + phishingResult.reason + "): " + url);
             showSecurityWarning("🎣 PHISHING ALERT!\n\n" + phishingResult.reason +
                     "\n\nConfidence: " + phishingResult.confidence + "%\n\nURL: " + url +
                     "\n\nThis site may be trying to steal your information!");
@@ -295,6 +358,7 @@ public class BrowserTab {
             // (ads/trackers)
             // This prevents "flashing" and UI lag when sites like YouTube load ads in
             // background
+            DebugLogger.log("Security", "Blocked Tracker/Malware: " + url);
             System.out.println("🛡️ Silently blocked: " + url);
 
             // Only show alert for MAIN page navigation, not resources

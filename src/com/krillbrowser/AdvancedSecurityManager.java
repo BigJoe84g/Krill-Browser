@@ -91,11 +91,13 @@ public class AdvancedSecurityManager {
         if (blockTrackers || blockAds) {
             // WHITELIST: Allow Google Video (YouTube CDN)
             if (lowerUrl.contains("googlevideo.com") || lowerUrl.contains("youtube.com")) {
+                DebugLogger.log("SecurityManager", "Whitelisted YouTube: " + url);
                 return false;
             }
 
             for (String domain : blockedDomains) {
                 if (lowerUrl.contains(domain)) {
+                    DebugLogger.log("SecurityManager", "BLOCKED domain (" + domain + "): " + url);
                     System.out.println("🛡️ Blocked: " + domain);
                     return true;
                 }

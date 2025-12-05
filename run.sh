@@ -1,35 +1,31 @@
 #!/bin/bash
-# Krill Browser Launch Script - PERFORMANCE OPTIMIZED
-# Run this script to start Krill Browser
+# Krill Browser v2.0 - Chromium Edition
+# This script runs the JCEF-based browser with proper JVM flags
 
 cd "$(dirname "$0")"
 
-# Compile if needed
-if [ ! -d "out" ] || [ "src/com/krillbrowser/KrillBrowser.java" -nt "out/com/krillbrowser/KrillBrowser.class" ]; then
-    echo "🦐 Compiling Krill Browser..."
-    javac --module-path javafx-sdk-21.0.5/lib --add-modules javafx.controls,javafx.web,javafx.media -d out src/module-info.java src/com/krillbrowser/*.java
+# Check if Maven is available
+if ! command -v mvn &> /dev/null; then
+    echo "❌ Maven not found. Please install Maven first."
+    echo "   Run: brew install maven"
+    exit 1
 fi
 
-echo "🦐 Starting Krill Browser (Performance Mode)..."
+echo "🦐 Starting Krill Browser (Chromium Edition)..."
 
-# JVM Performance Flags for 2017 Intel Mac:
-# -Xms512m: Higher initial heap for media playback
-# -Xmx2g: Allow more memory for heavy sites like YouTube
-# -XX:+UseG1GC: Low latency garbage collector
-# -Dprism.order=es2: Force hardware acceleration (OpenGL/Metal)
-# -Dsun.java2d.opengl=true: Enable OpenGL pipeline for UI
-# -Dprism.vsync=false: Disable vsync for maximum FPS
-# -Djavafx.animation.pulse=60: Limit animations to 60fps to save CPU
+# Run with required JVM flags for JCEF on macOS
+# Build the project (skip tests for speed)
+echo "📦 Building Krill Browser..."
+mvn clean package -DskipTests -q
 
+# Run the jar with module access flags
+# These flags are CRITICAL for JCEF on macOS/Java 17+
+echo "🚀 Launching..."
 java \
-    -Xms512m \
-    -Xmx2g \
-    -XX:+UseG1GC \
-    -XX:+UseStringDeduplication \
-    -Dprism.order=es2 \
-    -Dsun.java2d.opengl=true \
-    -Dprism.vsync=false \
-    -Djavafx.animation.pulse=60 \
-    --module-path javafx-sdk-21.0.5/lib:out \
-    --add-modules javafx.controls,javafx.web,javafx.media \
-    -m KrillBrowser/com.krillbrowser.KrillBrowser
+    --add-opens java.desktop/sun.awt=ALL-UNNAMED \
+    --add-opens java.desktop/java.awt=ALL-UNNAMED \
+    --add-opens java.desktop/java.awt.peer=ALL-UNNAMED \
+    --add-opens java.desktop/sun.lwawt.macosx=ALL-UNNAMED \
+    --add-opens java.desktop/sun.lwawt=ALL-UNNAMED \
+    --add-opens java.base/java.nio=ALL-UNNAMED \
+    -jar target/krill-browser-2.0.0.jar

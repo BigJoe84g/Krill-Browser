@@ -28,22 +28,34 @@ public class KrillBrowserChromium extends JFrame {
 
     private static CefApp cefApp;
     private CefClient cefClient;
-    private JTabbedPane tabbedPane;
+
+    // Custom UI Components
+    private JPanel tabContainer;
+    private JPanel browserContainer;
+
     private List<CefBrowser> browsers = new ArrayList<>();
+    private List<JButton> tabButtons = new ArrayList<>();
+
     private JTextField urlBar;
     private JLabel statusBar;
     private BrowserProfile.ProfileType currentProfile = BrowserProfile.ProfileType.DEFAULT;
+    private CefBrowser activeBrowser;
 
     public static void main(String[] args) {
+        // Enforce settings BEFORE any Swing classes load
+        // This forces the menu bar to be part of the JFrame, not the Mac system bar
+        System.setProperty("apple.laf.useScreenMenuBar", "false");
+
         // Initialize CEF on the main thread
         SwingUtilities.invokeLater(() -> {
             try {
+                // Use System L&F for best compatibility, BUT with the screenMenuBar property
+                // forced above
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+
                 new KrillBrowserChromium().setVisible(true);
             } catch (Exception e) {
                 e.printStackTrace();
-                JOptionPane.showMessageDialog(null,
-                        "Failed to start Krill Browser:\n" + e.getMessage(),
-                        "Startup Error", JOptionPane.ERROR_MESSAGE);
             }
         });
     }
@@ -52,6 +64,15 @@ public class KrillBrowserChromium extends JFrame {
             throws UnsupportedPlatformException, CefInitializationException, IOException, InterruptedException {
         super("Krill Browser 🦐 [Chromium Edition]");
 
+        // Enable Lightweight popups:
+        // Since we are using JCEF OSR (Off-Screen Rendering), the browser is a
+        // lightweight Swing component.
+        // Therefore, we should use lightweight popups to ensure they stay in the Java
+        // layer and don't
+        // fight for native window focus (which causes them to close immediately).
+        JPopupMenu.setDefaultLightWeightPopupEnabled(true);
+
+        // Initialize JCEF
         // Initialize JCEF
         initializeCef();
 
@@ -98,11 +119,16 @@ public class KrillBrowserChromium extends JFrame {
 
         // Configure settings
         CefSettings settings = builder.getCefSettings();
-        settings.windowless_rendering_enabled = false;
+        // Enable windowless rendering (OSR) to make it a lightweight Swing component.
+        settings.windowless_rendering_enabled = true;
+
         settings.cache_path = System.getProperty("user.home") + "/.krillbrowser/cache";
 
         // Security: Disable remote debugging in production
         settings.remote_debugging_port = 0;
+
+        // Set modern User Agent
+        settings.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
         // Build and get app
         builder.setInstallDir(new java.io.File(System.getProperty("user.home") + "/.krillbrowser/jcef"));
@@ -120,18 +146,33 @@ public class KrillBrowserChromium extends JFrame {
             @Override
             public void onAddressChange(CefBrowser browser, CefFrame frame, String url) {
                 SwingUtilities.invokeLater(() -> {
-                    urlBar.setText(url);
-                    updateSecurityIndicator(url);
+                    if (browser == activeBrowser) {
+                        urlBar.setText(url);
+                        updateSecurityIndicator(url);
+                    }
                 });
             }
 
             @Override
             public void onTitleChange(CefBrowser browser, String title) {
                 SwingUtilities.invokeLater(() -> {
-                    int index = getBrowserTabIndex(browser);
-                    if (index >= 0) {
-                        String shortTitle = title.length() > 25 ? title.substring(0, 22) + "..." : title;
-                        tabbedPane.setTitleAt(index, shortTitle);
+                    for (Component comp : tabContainer.getComponents()) {
+                        if (comp instanceof JPanel) {
+                            JPanel panel = (JPanel) comp;
+                            if (panel.getClientProperty("browser") == browser) {
+                                // Find JLabel safely
+                                for (Component inner : panel.getComponents()) {
+                                    if (inner instanceof JLabel) {
+                                        String shortTitle = title.length() > 18 ? title.substring(0, 15) + "..."
+                                                : title;
+                                        ((JLabel) inner).setText(shortTitle);
+                                        ((JLabel) inner).setToolTipText(title);
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
                     }
                 });
             }
@@ -143,74 +184,148 @@ public class KrillBrowserChromium extends JFrame {
             public void onLoadingStateChange(CefBrowser browser, boolean isLoading, boolean canGoBack,
                     boolean canGoForward) {
                 SwingUtilities.invokeLater(() -> {
-                    statusBar.setText(isLoading ? "Loading..." : "Ready");
+                    if (browser == activeBrowser) {
+                        statusBar.setText(isLoading ? "Loading..." : "Ready");
+                    }
                 });
+            }
+
+            // REMOVED Retro CSS Injection - Keeping the web modern!
+        });
+
+        // Setup LifeSpan handler to force popups into tabs
+        cefClient.addLifeSpanHandler(new org.cef.handler.CefLifeSpanHandlerAdapter() {
+            @Override
+            public boolean onBeforePopup(CefBrowser browser, CefFrame frame, String targetUrl, String targetFrameName) {
+                // Return true to cancel the popup creation
+                // And manually open it in a new tab instead
+                SwingUtilities.invokeLater(() -> createNewTab(targetUrl));
+                return true;
             }
         });
     }
 
     private void setupUI() {
+        // --- 🎨 MODERN KRILL THEME 🎨 ---
+        // Clean, Flat, Minimalist
+        Color bgLight = new Color(245, 246, 250); // Soft white/gray
+        Color accentBlue = new Color(33, 150, 243); // Material Blue
+        Color borderGray = new Color(220, 220, 220); // Subtle border
+
+        // Modern Font
+        Font modernFont = new Font("SansSerif", Font.PLAIN, 13);
+
+        getContentPane().setBackground(bgLight);
         setLayout(new BorderLayout());
 
-        // Create menu bar
-        setJMenuBar(createMenuBar());
+        // Create menu bar with theme
+        JMenuBar mb = createMenuBar();
+        // Flat styling for Menu Bar
+        mb.setBackground(Color.WHITE);
+        mb.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, borderGray));
+        setJMenuBar(mb);
+
+        // Top Container (Toolbar + Tab Bar)
+        JPanel topContainer = new JPanel(new BorderLayout());
+        topContainer.setBackground(bgLight);
+        topContainer.setBorder(null); // No outer border for clean look
 
         // Navigation toolbar
         JToolBar toolbar = createToolbar();
-        add(toolbar, BorderLayout.NORTH);
+        toolbar.setBackground(Color.WHITE);
+        toolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, borderGray));
 
-        // Tabbed pane for browser tabs
-        tabbedPane = new JTabbedPane();
-        tabbedPane.addChangeListener(e -> {
-            int index = tabbedPane.getSelectedIndex();
-            if (index >= 0 && index < browsers.size()) {
-                urlBar.setText(browsers.get(index).getURL());
+        // Style ALL buttons in the toolbar to look Modern
+        for (Component c : toolbar.getComponents()) {
+            if (c instanceof JButton) {
+                JButton b = (JButton) c;
+                b.setBackground(Color.WHITE);
+                b.setBorder(BorderFactory.createEmptyBorder(5, 8, 5, 8)); // Padding only
+                b.setFocusPainted(false);
+                b.setFont(modernFont.deriveFont(Font.BOLD, 14));
+
+                // Add simple hover effect
+                b.addMouseListener(new MouseAdapter() {
+                    public void mouseEntered(MouseEvent e) {
+                        b.setBackground(new Color(230, 240, 255));
+                    }
+
+                    public void mouseExited(MouseEvent e) {
+                        b.setBackground(Color.WHITE);
+                    }
+                });
             }
-        });
-        add(tabbedPane, BorderLayout.CENTER);
+        }
+
+        topContainer.add(toolbar, BorderLayout.NORTH);
+
+        // Custom Tab Bar
+        tabContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        tabContainer.setBackground(bgLight);
+        tabContainer.setBorder(BorderFactory.createEmptyBorder(4, 4, 0, 4));
+        topContainer.add(tabContainer, BorderLayout.SOUTH);
+
+        add(topContainer, BorderLayout.NORTH);
+
+        // Browser Container (Center)
+        browserContainer = new JPanel(new BorderLayout());
+        browserContainer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, borderGray)); // Separator line
+        add(browserContainer, BorderLayout.CENTER);
 
         // Status bar
         statusBar = new JLabel("Ready");
-        statusBar.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        statusBar.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        statusBar.setForeground(Color.GRAY);
+        statusBar.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
         add(statusBar, BorderLayout.SOUTH);
     }
 
     private JToolBar createToolbar() {
         JToolBar toolbar = new JToolBar();
         toolbar.setFloatable(false);
+        toolbar.setRollover(false);
 
         // Back button
         JButton backBtn = new JButton("◀");
         backBtn.setToolTipText("Back");
-        backBtn.addActionListener(e -> getCurrentBrowser().goBack());
+        backBtn.addActionListener(e -> {
+            if (activeBrowser != null)
+                activeBrowser.goBack();
+        });
         toolbar.add(backBtn);
 
         // Forward button
         JButton fwdBtn = new JButton("▶");
         fwdBtn.setToolTipText("Forward");
-        fwdBtn.addActionListener(e -> getCurrentBrowser().goForward());
+        fwdBtn.addActionListener(e -> {
+            if (activeBrowser != null)
+                activeBrowser.goForward();
+        });
         toolbar.add(fwdBtn);
 
         // Reload button
         JButton reloadBtn = new JButton("⟳");
         reloadBtn.setToolTipText("Reload");
-        reloadBtn.addActionListener(e -> getCurrentBrowser().reload());
+        reloadBtn.addActionListener(e -> {
+            if (activeBrowser != null)
+                activeBrowser.reload();
+        });
         toolbar.add(reloadBtn);
 
-        toolbar.addSeparator();
+        toolbar.add(Box.createHorizontalStrut(10));
 
-        // URL bar
+        // URL bar - Modern Flat
         urlBar = new JTextField();
+        // Round border illusion using compound border
+        urlBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200), 1),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+        urlBar.setBackground(new Color(245, 245, 245));
+        urlBar.setFont(new Font("SansSerif", Font.PLAIN, 13));
         urlBar.addActionListener(e -> loadUrl(urlBar.getText()));
+
         toolbar.add(urlBar);
-
-        toolbar.addSeparator();
-
-        // New tab button
-        JButton newTabBtn = new JButton("+");
-        newTabBtn.setToolTipText("New Tab");
-        newTabBtn.addActionListener(e -> createNewTab("https://duckduckgo.com"));
-        toolbar.add(newTabBtn);
+        toolbar.add(Box.createHorizontalStrut(10));
 
         return toolbar;
     }
@@ -218,8 +333,13 @@ public class KrillBrowserChromium extends JFrame {
     private JMenuBar createMenuBar() {
         JMenuBar menuBar = new JMenuBar();
 
+        // Helper to style menus
+        ActionListener styleMenu = e -> {
+        };
+
         // File menu
         JMenu fileMenu = new JMenu("File");
+        styleModernMenu(fileMenu);
         JMenuItem newTab = new JMenuItem("New Tab");
         newTab.addActionListener(e -> createNewTab("https://duckduckgo.com"));
         fileMenu.add(newTab);
@@ -231,6 +351,7 @@ public class KrillBrowserChromium extends JFrame {
 
         // Security menu
         JMenu securityMenu = new JMenu("🛡️ Security");
+        styleModernMenu(securityMenu);
 
         JCheckBoxMenuItem blockTrackers = new JCheckBoxMenuItem("Block Trackers", true);
         blockTrackers.addActionListener(
@@ -254,6 +375,7 @@ public class KrillBrowserChromium extends JFrame {
 
         // Profiles menu
         JMenu profilesMenu = new JMenu("👤 Profiles");
+        styleModernMenu(profilesMenu);
         ButtonGroup profileGroup = new ButtonGroup();
 
         for (BrowserProfile.ProfileType profile : BrowserProfile.ProfileType.values()) {
@@ -268,6 +390,7 @@ public class KrillBrowserChromium extends JFrame {
 
         // Help menu
         JMenu helpMenu = new JMenu("Help");
+        styleModernMenu(helpMenu);
         JMenuItem about = new JMenuItem("About");
         about.addActionListener(e -> showAbout());
         helpMenu.add(about);
@@ -276,43 +399,225 @@ public class KrillBrowserChromium extends JFrame {
         return menuBar;
     }
 
+    private void styleModernMenu(JMenu menu) {
+        menu.setOpaque(true);
+        menu.setBackground(Color.WHITE);
+        menu.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        menu.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+    }
+
+    private JButton newTabAddBtn;
+
     private void createNewTab(String url) {
+        // Create browser instance
         CefBrowser browser = cefClient.createBrowser(url, false, false);
         browsers.add(browser);
 
-        Component component = browser.getUIComponent();
-        tabbedPane.addTab("New Tab", component);
-        tabbedPane.setSelectedIndex(tabbedPane.getTabCount() - 1);
+        // Create tab component panel
+        // Use BorderLayout to ensure Close Button is always visible on the right
+        JPanel tabPanel = new JPanel(new BorderLayout(5, 0));
+        tabPanel.setOpaque(true);
+        tabPanel.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 4));
+        tabPanel.setPreferredSize(new Dimension(160, 26)); // Set fixed width for consistency
 
-        // Add close button to tab
-        int index = tabbedPane.getTabCount() - 1;
-        JPanel tabPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        tabPanel.setOpaque(false);
-        JLabel titleLabel = new JLabel("New Tab  ");
-        JButton closeBtn = new JButton("×");
+        // Title Label
+        JLabel titleLabel = new JLabel("New Tab");
+        titleLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        tabPanel.add(titleLabel, BorderLayout.CENTER);
+
+        // Close Button
+        // Modern Style: Simple Clean 'x'
+        JButton closeBtn = new JButton("x");
+        closeBtn.setMargin(new Insets(0, 0, 0, 0));
+        closeBtn.setPreferredSize(new Dimension(30, 30)); // Increased to 30x30 to almost guarantee fit
+        closeBtn.setFocusPainted(false);
         closeBtn.setBorderPainted(false);
         closeBtn.setContentAreaFilled(false);
+        closeBtn.setOpaque(false);
+        closeBtn.setFont(new Font("SansSerif", Font.BOLD, 16)); // Slightly smaller bold font to fit better
+        closeBtn.setForeground(Color.GRAY);
+
+        closeBtn.putClientProperty("close", true);
         closeBtn.addActionListener(e -> closeTab(browser));
-        tabPanel.add(titleLabel);
-        tabPanel.add(closeBtn);
-        tabbedPane.setTabComponentAt(index, tabPanel);
+
+        // Hover effect for clearer interaction
+        closeBtn.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                e.consume();
+            }
+
+            public void mouseEntered(MouseEvent e) {
+                closeBtn.setForeground(new Color(255, 80, 80)); // Red hover
+            }
+
+            public void mouseExited(MouseEvent e) {
+                closeBtn.setForeground(Color.GRAY);
+            }
+        });
+
+        // Wrap in a panel to protect size in BorderLayout.EAST
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        btnPanel.setOpaque(false);
+        btnPanel.setBorder(BorderFactory.createEmptyBorder(3, 4, 1, 0));
+        btnPanel.add(closeBtn);
+
+        tabPanel.add(btnPanel, BorderLayout.EAST);
+
+        // Make the whole panel clickable to switch tabs
+        MouseAdapter selectTabListener = new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (SwingUtilities.isMiddleMouseButton(e)) {
+                    closeTab(browser);
+                } else {
+                    switchTab(browser);
+                }
+            }
+        };
+        tabPanel.addMouseListener(selectTabListener);
+        titleLabel.addMouseListener(selectTabListener);
+
+        // Add to main UI
+        // If "New Tab" button exists, add before it. Otherwise add at end.
+        if (newTabAddBtn != null && newTabAddBtn.getParent() == tabContainer) {
+            tabContainer.remove(newTabAddBtn);
+            tabContainer.add(tabPanel);
+            tabContainer.add(newTabAddBtn);
+        } else {
+            tabContainer.add(tabPanel);
+            // Initialize the add button if it doesn't exist (first run)
+            if (newTabAddBtn == null) {
+                createAddTabButton();
+            }
+            tabContainer.add(newTabAddBtn);
+        }
+
+        // Store reference for styling
+        tabPanel.putClientProperty("browser", browser);
+
+        // Switch to new tab
+        switchTab(browser);
+    }
+
+    private void createAddTabButton() {
+        newTabAddBtn = new JButton("+");
+        newTabAddBtn.setMargin(new Insets(2, 6, 2, 6));
+        newTabAddBtn.setFocusPainted(false);
+        newTabAddBtn.setBackground(new Color(245, 246, 250));
+        newTabAddBtn.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        newTabAddBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
+
+        newTabAddBtn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                newTabAddBtn.setOpaque(true);
+                newTabAddBtn.setBackground(new Color(220, 230, 255));
+            }
+
+            public void mouseExited(MouseEvent e) {
+                newTabAddBtn.setOpaque(false);
+                newTabAddBtn.setBackground(new Color(245, 246, 250));
+            }
+        });
+
+        newTabAddBtn.addActionListener(e -> createNewTab("https://duckduckgo.com"));
+    }
+
+    private void switchTab(CefBrowser browser) {
+        this.activeBrowser = browser;
+
+        // Update Browser View
+        browserContainer.removeAll();
+        browserContainer.add(browser.getUIComponent(), BorderLayout.CENTER);
+
+        // Update UI State
+        urlBar.setText(browser.getURL());
+        updateSecurityIndicator(browser.getURL());
+        statusBar.setText("Ready");
+
+        // Update Tab Styles
+        for (Component comp : tabContainer.getComponents()) {
+            if (comp instanceof JPanel) {
+                JPanel panel = (JPanel) comp;
+                CefBrowser panelBrowser = (CefBrowser) panel.getClientProperty("browser");
+
+                JLabel label = null;
+                for (Component inner : panel.getComponents()) {
+                    if (inner instanceof JLabel) {
+                        label = (JLabel) inner;
+                        break;
+                    }
+                }
+
+                if (panelBrowser == browser) {
+                    // Active Tab: White with Top Blue Line
+                    panel.setBackground(Color.WHITE);
+                    panel.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(2, 0, 0, 0, new Color(33, 150, 243)), // Blue top
+                            BorderFactory.createEmptyBorder(0, 1, 0, 1) // Side spacing
+                    ));
+
+                    if (label != null) {
+                        label.setFont(label.getFont().deriveFont(Font.BOLD));
+                        label.setForeground(new Color(33, 150, 243)); // Blue text
+                    }
+                } else {
+                    // Inactive Tab: Gray
+                    panel.setBackground(new Color(230, 230, 230));
+                    panel.setBorder(BorderFactory.createEmptyBorder(2, 1, 0, 1));
+
+                    if (label != null) {
+                        label.setFont(label.getFont().deriveFont(Font.PLAIN));
+                        label.setForeground(Color.DARK_GRAY);
+                    }
+                }
+            }
+        }
+
+        // Validate layout to apply changes
+        browserContainer.revalidate();
+        browserContainer.repaint();
+        tabContainer.revalidate();
+        tabContainer.repaint();
     }
 
     private void closeTab(CefBrowser browser) {
         int index = browsers.indexOf(browser);
         if (index >= 0) {
             browsers.remove(index);
-            tabbedPane.remove(index);
-            browser.close(false);
-        }
 
-        // Don't close last tab, create new one
-        if (browsers.isEmpty()) {
-            createNewTab("https://duckduckgo.com");
+            // Find and remove the correct panel
+            for (Component comp : tabContainer.getComponents()) {
+                if (comp instanceof JPanel) {
+                    JPanel panel = (JPanel) comp;
+                    if (panel.getClientProperty("browser") == browser) {
+                        tabContainer.remove(panel);
+                        break;
+                    }
+                }
+            }
+
+            // Cleanup browser
+            browser.close(false);
+
+            // Switch to another tab if available
+            if (!browsers.isEmpty()) {
+                // Go to previous tab or first
+                int newIndex = Math.max(0, index - 1);
+                switchTab(browsers.get(newIndex));
+            } else {
+                // Ensure there's always one tab
+                createNewTab("https://duckduckgo.com");
+            }
+
+            tabContainer.revalidate();
+            tabContainer.repaint();
         }
     }
 
     private void loadUrl(String url) {
+        if (activeBrowser == null)
+            return;
+
         // Add protocol if missing
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             if (url.contains(".") && !url.contains(" ")) {
@@ -343,25 +648,13 @@ public class KrillBrowserChromium extends JFrame {
             return;
         }
 
-        getCurrentBrowser().loadURL(url);
+        activeBrowser.loadURL(url);
         urlBar.setText(url);
 
         // Add to history
         if (!SecurityManager.getInstance().isPrivateMode()) {
             HistoryManager.getInstance().addToHistory(url);
         }
-    }
-
-    private CefBrowser getCurrentBrowser() {
-        int index = tabbedPane.getSelectedIndex();
-        if (index >= 0 && index < browsers.size()) {
-            return browsers.get(index);
-        }
-        return browsers.get(0);
-    }
-
-    private int getBrowserTabIndex(CefBrowser browser) {
-        return browsers.indexOf(browser);
     }
 
     private void updateSecurityIndicator(String url) {
