@@ -1,0 +1,209 @@
+/*
+ * Krill Browser Stylesheet
+ * A modern, clean stylesheet for the browser
+ */
+
+/* Root styling */
+.root {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: #f5f5f5;
+}
+
+/* Menu bar styling */
+.menu-bar {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f0f0f0);
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+}
+
+.menu {
+    -fx-background-color: transparent;
+}
+
+.menu:hover {
+    -fx-background-color: #e8e8e8;
+}
+
+.menu-item {
+    -fx-background-color: transparent;
+}
+
+.menu-item:hover {
+    -fx-background-color: #0078d4;
+    -fx-text-fill: white;
+}
+
+/* Tab pane styling */
+.tab-pane {
+    -fx-background-color: #ffffff;
+}
+
+.tab-pane .tab-header-area {
+    -fx-background-color: #f0f0f0;
+    -fx-padding: 5 5 0 5;
+}
+
+.tab {
+    -fx-background-color: #e8e8e8;
+    -fx-background-radius: 5 5 0 0;
+    -fx-border-radius: 5 5 0 0;
+    -fx-padding: 5 15 5 15;
+}
+
+.tab:selected {
+    -fx-background-color: #ffffff;
+}
+
+.tab:hover {
+    -fx-background-color: #d8d8d8;
+}
+
+.tab:selected:hover {
+    -fx-background-color: #ffffff;
+}
+
+.tab .tab-label {
+    -fx-text-fill: #333333;
+}
+
+/* Navigation bar styling */
+.navigation-bar {
+    -fx-background-color: #f8f8f8;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8;
+}
+
+/* Navigation buttons */
+.navigation-bar .button {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d0d0;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-min-width: 32;
+    -fx-min-height: 28;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+
+.navigation-bar .button:hover {
+    -fx-background-color: #e8e8e8;
+    -fx-border-color: #c0c0c0;
+}
+
+.navigation-bar .button:pressed {
+    -fx-background-color: #d0d0d0;
+}
+
+.navigation-bar .button:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+/* URL field styling */
+.url-field {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d0d0;
+    -fx-border-radius: 15;
+    -fx-background-radius: 15;
+    -fx-padding: 5 12 5 12;
+    -fx-font-size: 13px;
+}
+
+.url-field:focused {
+    -fx-border-color: #0078d4;
+    -fx-effect: dropshadow(gaussian, rgba(0, 120, 212, 0.3), 5, 0, 0, 0);
+}
+
+/* Security indicator */
+.security-indicator {
+    -fx-font-size: 16px;
+    -fx-padding: 0 5 0 5;
+}
+
+.security-indicator.secure {
+    -fx-text-fill: #107c10;
+}
+
+.security-indicator.insecure {
+    -fx-text-fill: #ff8c00;
+}
+
+/* WebView container */
+.web-view {
+    -fx-background-color: #ffffff;
+}
+
+/* Dialogs */
+.dialog-pane {
+    -fx-background-color: #ffffff;
+}
+
+.dialog-pane .header-panel {
+    -fx-background-color: #f0f0f0;
+}
+
+/* List view for history/bookmarks */
+.list-view {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #e0e0e0;
+}
+
+.list-view .list-cell {
+    -fx-padding: 8 12 8 12;
+    -fx-border-color: transparent transparent #f0f0f0 transparent;
+}
+
+.list-view .list-cell:hover {
+    -fx-background-color: #f0f8ff;
+}
+
+.list-view .list-cell:selected {
+    -fx-background-color: #0078d4;
+    -fx-text-fill: white;
+}
+
+/* Scrollbar styling */
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #c0c0c0;
+    -fx-background-radius: 5;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #a0a0a0;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-shape: "";
+    -fx-padding: 0;
+}
+
+/* Alert/Dialog styling */
+.alert {
+    -fx-background-color: #ffffff;
+}
+
+.alert .header-panel {
+    -fx-background-color: #f5f5f5;
+}
+
+.alert .content {
+    -fx-padding: 15;
+}
+
+/* Progress indicator for loading pages */
+.progress-indicator {
+    -fx-progress-color: #0078d4;
+}
