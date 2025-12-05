@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 # Compile if needed
 if [ ! -d "out" ] || [ "src/com/krillbrowser/KrillBrowser.java" -nt "out/com/krillbrowser/KrillBrowser.class" ]; then
     echo "🦐 Compiling Krill Browser..."
-    javac --module-path javafx-sdk-21.0.5/lib --add-modules javafx.controls,javafx.web -d out src/module-info.java src/com/krillbrowser/*.java
+    javac --module-path javafx-sdk-21.0.5/lib --add-modules javafx.controls,javafx.web,javafx.media -d out src/module-info.java src/com/krillbrowser/*.java
 fi
 
 echo "🦐 Starting Krill Browser (Performance Mode)..."
@@ -28,5 +28,5 @@ java \
     -Dprism.vsync=false \
     -Djavafx.animation.pulse=60 \
     --module-path javafx-sdk-21.0.5/lib:out \
-    --add-modules javafx.controls,javafx.web \
+    --add-modules javafx.controls,javafx.web,javafx.media \
     -m KrillBrowser/com.krillbrowser.KrillBrowser

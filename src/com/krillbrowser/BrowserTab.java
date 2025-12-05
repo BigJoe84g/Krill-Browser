@@ -39,8 +39,9 @@ public class BrowserTab {
 
         // === PERFORMANCE OPTIMIZATIONS ===
 
-        // Enable caching for faster page loads
-        webEngine.setUserAgent("Krill/1.0 (compatible; MSIE 11.0; Windows NT 10.0)");
+        // Use realistic User-Agent to avoid CAPTCHA/bot detection
+        webEngine.setUserAgent(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
 
         // Disable context menu for faster response
         webView.setContextMenuEnabled(false);
