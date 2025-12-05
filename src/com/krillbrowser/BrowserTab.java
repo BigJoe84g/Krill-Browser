@@ -33,11 +33,28 @@ public class BrowserTab {
         tab = new Tab("New Tab");
         tab.setClosable(true);
 
-        // Create WebView
+        // Create WebView with performance optimizations
         webView = new WebView();
         webEngine = webView.getEngine();
 
-        // Enable JavaScript
+        // === PERFORMANCE OPTIMIZATIONS ===
+
+        // Enable caching for faster page loads
+        webEngine.setUserAgent("Krill/1.0 (compatible; MSIE 11.0; Windows NT 10.0)");
+
+        // Disable context menu for faster response
+        webView.setContextMenuEnabled(false);
+
+        // Reduce memory by limiting font smoothing
+        webView.setFontSmoothingType(javafx.scene.text.FontSmoothingType.LCD);
+
+        // Set cache to be more aggressive
+        webView.setCache(true);
+
+        // Optimize zoom for performance
+        webView.setZoom(1.0);
+
+        // Enable JavaScript (needed for most sites)
         webEngine.setJavaScriptEnabled(true);
 
         // Create navigation bar
