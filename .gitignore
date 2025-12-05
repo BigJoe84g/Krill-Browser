@@ -12,7 +12,8 @@ target/
 .checkpoints/
 
 # Release folder (Generated artifact)
-KrillBrowser_Release/
+# Release folder (Generated artifact)
+# KrillBrowser_Release/
 
 # User data (JCEF cache etc if locally stored)
 jcef-bundle/
