@@ -12,19 +12,22 @@ fi
 
 echo "🦐 Starting Krill Browser (Performance Mode)..."
 
-# JVM Performance Flags:
-# -Xms256m: Initial heap size (faster startup)
-# -Xmx1g: Max heap size (prevents memory issues)
-# -XX:+UseG1GC: Modern garbage collector (lower latency)
-# -XX:+UseStringDeduplication: Reduce string memory usage
-# -Dprism.order=sw: Software rendering (more compatible)
-# -Dprism.vsync=false: Disable vsync for faster rendering
+# JVM Performance Flags for 2017 Intel Mac:
+# -Xms512m: Higher initial heap for media playback
+# -Xmx2g: Allow more memory for heavy sites like YouTube
+# -XX:+UseG1GC: Low latency garbage collector
+# -Dprism.order=es2: Force hardware acceleration (OpenGL/Metal)
+# -Dsun.java2d.opengl=true: Enable OpenGL pipeline for UI
+# -Dprism.vsync=false: Disable vsync for maximum FPS
+# -Djavafx.animation.pulse=60: Limit animations to 60fps to save CPU
 
 java \
-    -Xms256m \
-    -Xmx1g \
+    -Xms512m \
+    -Xmx2g \
     -XX:+UseG1GC \
     -XX:+UseStringDeduplication \
+    -Dprism.order=es2 \
+    -Dsun.java2d.opengl=true \
     -Dprism.vsync=false \
     -Djavafx.animation.pulse=60 \
     --module-path javafx-sdk-21.0.5/lib:out \
