@@ -270,6 +270,15 @@ public class BrowserTab {
             return;
         }
 
+        // PHISHING DETECTION - Check for lookalike domains and scams
+        PhishingDetector.PhishingResult phishingResult = PhishingDetector.getInstance().checkUrl(url);
+        if (phishingResult.isPhishing) {
+            showSecurityWarning("🎣 PHISHING ALERT!\n\n" + phishingResult.reason +
+                    "\n\nConfidence: " + phishingResult.confidence + "%\n\nURL: " + url +
+                    "\n\nThis site may be trying to steal your information!");
+            return;
+        }
+
         // Block trackers/malware
         if (advSecurity.shouldBlockUrl(url) || security.shouldBlockUrl(url)) {
             showSecurityWarning("🛡️ Blocked!\n\nThis site contains trackers or malware.\n\nURL: " + url);
