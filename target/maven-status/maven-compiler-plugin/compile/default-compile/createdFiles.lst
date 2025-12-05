@@ -1,0 +1,14 @@
+com/krillbrowser/SecurityManager.class
+com/krillbrowser/HistoryManager.class
+com/krillbrowser/BrowserProfile.class
+com/krillbrowser/SecurityManager$SecurityLevel.class
+com/krillbrowser/KrillBrowserChromium$2.class
+com/krillbrowser/KrillBrowserChromium.class
+com/krillbrowser/BrowserProfile$ProfileSettings.class
+com/krillbrowser/KrillBrowserChromium$3.class
+com/krillbrowser/KrillBrowserChromium$1.class
+com/krillbrowser/AdvancedSecurityManager.class
+com/krillbrowser/CookieManager.class
+com/krillbrowser/HistoryManager$HistoryEntry.class
+com/krillbrowser/BrowserProfile$ProfileType.class
+com/krillbrowser/BookmarkManager.class
